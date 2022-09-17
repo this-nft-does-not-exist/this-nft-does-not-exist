@@ -8,6 +8,8 @@ tensorflow = "*"
 imageio = "*"
 matplotlib = "*"
 ipython = "*"
+requests = "*"
+tqdm = "*"
 
 [dev-packages]
 
