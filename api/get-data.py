@@ -1,12 +1,11 @@
 #!/bin/env python3
+import concurrent.futures
 import io
-import sqlite3
-import sys
-import numpy
+import json
 import PIL.Image
 import requests
 import tqdm
-i = 1
+
 CONNECTIONS = 100
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:104.0) Gecko/20100101 Firefox/104.0",
@@ -19,31 +18,38 @@ PARAMS = {
     "orderBy": "blockTimestamp",
     "order": "DESC",
 }
-CREATE_QUERY = "CREATE TABLE nft (image TEXT NOT NULL, data BLOB NOT NULL)"
-INSERT_QUERY = "INSERT INTO nft (image, data) VALUES(?, ?)"
 
 
-def download(cursor, url):
-    global i
+def download(url, basename, pbar):
     res = requests.get(url, headers=HEADERS)
     image = PIL.Image.open(io.BytesIO(res.content)).convert("RGB")
-    image.save(f"nft/{i}.png", "PNG")
-    i += 1
-    # cursor.execute(INSERT_QUERY, (url, numpy.asarray(image).tobytes()))
+    image.save(f"nft/{basename}.png", "PNG")
+    pbar.update(1)
 
 
 def main():
     items = []
 
-    items = requests.get(URL, params=PARAMS, headers=HEADERS).json()["sales"]
+    params = dict(PARAMS)
+    for i in tqdm.tqdm(range(1000)):
+        res = requests.get(URL, params=params, headers=HEADERS).json()["sales"]
+        items = items + res
+        if res:
+            params["after"] = items[-1]["_cursor"]
+        with open("items.json", "w") as fd:
+            json.dump(items, fd)
 
-    with sqlite3.connect(sys.argv[1]) as con:
-        cur = con.cursor()
-        # cur.execute(CREATE_QUERY)
 
-        for item in tqdm.tqdm(items):
-            download(
-                cur, f'https://nonfungible.com/_next/image?url=http://images1.nonfungible.com:3333/api/v4/asset/media/image/{item["project"]}/{item["nftTicker"]}/{item["assetId"]}&w=64&q=100')
+    with concurrent.futures.ThreadPoolExecutor(max_workers=CONNECTIONS) as executor:
+        with tqdm.tqdm(total=len(items)) as pbar:
+            future_to_url = (executor.submit(
+                download,
+                f'https://nonfungible.com/_next/image?url=http://images1.nonfungible.com:3333/api/v4/asset/media/image/{item["project"]}/{item["nftTicker"]}/{item["assetId"]}&w=64&q=100',
+                f'{item["project"]}_{item["nftTicker"]}_{item["assetId"]}',
+                pbar
+            ) for item in items)
+            for future in concurrent.futures.as_completed(future_to_url):
+                future.result()
 
 
 if __name__ == "__main__":
