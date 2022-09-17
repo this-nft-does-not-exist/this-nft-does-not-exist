@@ -1,3 +1,4 @@
+from random import shuffle
 import tensorflow as tf
 import glob
 import imageio
@@ -6,11 +7,9 @@ import numpy as np
 import os
 import PIL
 from tensorflow.keras import layers
+from tensorflow import keras
 import time
 import sqlite3
-
-from generator import make_generator_model, generator_loss
-from discriminator import make_discriminator_model, discriminator_loss
 
 from IPython import display
 
@@ -18,40 +17,104 @@ dbfile = "./nft.db"
 
 train_size = 100
 
-train_images = np.array((train_size, 28, 28, 3), dtype=np.uint8)
-with sqlite3.connect(dbfile) as con:
-    cur = con.cursor()
-    cur.execute('SELECT data FROM nft')
-    for (image, ) in cur.fetchall():
-        train_images = np.append(
-            train_images, np.frombuffer(image, dtype=np.uint8))
+train_dataset = keras.preprocessing.image_dataset_from_directory(
+    "nft", label_mode=None, image_size=(64, 64), batch_size=32, shuffle=True
+)
 
-train_images = train_images.astype("float32")
 # Normalize the images to [-1, 1]
-train_images = (train_images - 127.5) / 127.5
+train_dataset = train_dataset.map(lambda x: (x - 127.5) / 127.5)
+
 
 BUFFER_SIZE = 60000
-BATCH_SIZE = 256
+BATCH_SIZE = 32
+
+train_images_array = []
+for images in train_dataset:
+    for i in range(len(images)):
+        train_images_array.append(images[i])
+
+train_images = np.array(train_images_array)
+train_images = train_images.reshape(
+    train_images.shape[0], 64, 64, 3).astype('float32')
+
 # Batch and shuffle the data
-train_dataset = tf.data.Dataset.from_tensor_slices(
+dataset_ = tf.data.Dataset.from_tensor_slices(
     train_images).shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
 
-# GENERATE
+
+def make_generator_model():
+    model = tf.keras.Sequential()
+    model.add(layers.Dense(8*8*256, use_bias=False, input_shape=(100,)))
+    model.add(layers.BatchNormalization())
+    model.add(layers.LeakyReLU())
+
+    model.add(layers.Reshape((8, 8, 256)))
+    # Note: None is the batch size
+    assert model.output_shape == (None, 8, 8, 256)
+
+    model.add(layers.Conv2DTranspose(
+        128, (5, 5), strides=(1, 1), padding='same', use_bias=False))
+    assert model.output_shape == (None, 8, 8, 128)
+    model.add(layers.BatchNormalization())
+    model.add(layers.LeakyReLU())
+
+    model.add(layers.Conv2DTranspose(
+        64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    assert model.output_shape == (None, 16, 16, 64)
+    model.add(layers.BatchNormalization())
+    model.add(layers.LeakyReLU())
+
+    model.add(layers.Conv2DTranspose(3, (20, 20), strides=(4, 4),
+              padding='same', use_bias=False, activation='tanh'))
+    print(model.output_shape)
+    assert model.output_shape == (None, 64, 64, 3)
+    return model
+
+
 generator = make_generator_model()
 
 noise = tf.random.normal([1, 100])
 generated_image = generator(noise, training=False)
 
-# imageio.imsave("test.jpg", generated_image[0, :, :, 0])
-plt.imshow(generated_image[0, :, :, 0], cmap='gray')
+plt.imshow(generated_image[0, :, :, 0])
 
-# DISCRIMINATE
+
+def make_discriminator_model():
+    model = tf.keras.Sequential()
+    model.add(layers.Conv2D(64, (10, 10), strides=(2, 2),
+              padding='same', input_shape=[64, 64, 3]))
+    model.add(layers.LeakyReLU())
+    model.add(layers.Dropout(0.3))
+
+    model.add(layers.Conv2D(128, (5, 5), strides=(2, 2),
+              padding='same', input_shape=[64, 64, 3]))
+    model.add(layers.LeakyReLU())
+    model.add(layers.Dropout(0.3))
+
+    model.add(layers.Flatten())
+    model.add(layers.Dense(1))
+
+    return model
+
+
 discriminator = make_discriminator_model()
 decision = discriminator(generated_image)
 print(decision)
 
 # This method returns a helper function to compute cross entropy loss
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+
+
+def discriminator_loss(real_output, fake_output):
+    real_loss = cross_entropy(tf.ones_like(real_output), real_output)
+    fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
+    total_loss = real_loss + fake_loss
+    return total_loss
+
+
+def generator_loss(fake_output):
+    return cross_entropy(tf.ones_like(fake_output), fake_output)
+
 
 generator_optimizer = tf.keras.optimizers.Adam(1e-4)
 discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
@@ -62,6 +125,7 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
                                  discriminator_optimizer=discriminator_optimizer,
                                  generator=generator,
                                  discriminator=discriminator)
+checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
 
 EPOCHS = 50
 noise_dim = 100
@@ -72,8 +136,28 @@ num_examples_to_generate = 16
 seed = tf.random.normal([num_examples_to_generate, noise_dim])
 
 
+def generate_and_save_images(model, epoch, test_input):
+    # Notice `training` is set to False.
+    # This is so all layers run in inference mode (batchnorm).
+    predictions = model(test_input, training=False)
+
+    fig = plt.figure(figsize=(4, 4))
+
+    for i in range(predictions.shape[0]):
+        plt.subplot(4, 4, i+1)
+        plt.imshow((predictions[i] + 1) / 2)
+        plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5)
+
+        plt.axis('off')
+
+    plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
+
+    # plt.show()
+
 # Notice the use of `tf.function`
 # This annotation causes the function to be "compiled".
+
+
 @tf.function
 def train_step(images):
     noise = tf.random.normal([BATCH_SIZE, noise_dim])
@@ -84,8 +168,8 @@ def train_step(images):
         real_output = discriminator(images, training=True)
         fake_output = discriminator(generated_images, training=True)
 
-        gen_loss = generator_loss(cross_entropy, fake_output)
-        disc_loss = discriminator_loss(cross_entropy, real_output, fake_output)
+        gen_loss = generator_loss(fake_output)
+        disc_loss = discriminator_loss(real_output, fake_output)
 
     gradients_of_generator = gen_tape.gradient(
         gen_loss, generator.trainable_variables)
@@ -101,7 +185,6 @@ def train_step(images):
 def train(dataset, epochs):
     for epoch in range(epochs):
         start = time.time()
-
         for image_batch in dataset:
             train_step(image_batch)
 
@@ -111,8 +194,8 @@ def train(dataset, epochs):
                                  epoch + 1,
                                  seed)
 
-        # Save the model every 15 epochs
-        if (epoch + 1) % 15 == 0:
+        # Save the model every 1 epochs
+        if (epoch + 1) % 8 == 0:
             checkpoint.save(file_prefix=checkpoint_prefix)
 
         print('Time for epoch {} is {} sec'.format(
@@ -123,22 +206,7 @@ def train(dataset, epochs):
     generate_and_save_images(generator,
                              epochs,
                              seed)
+    return
 
 
-def generate_and_save_images(model, epoch, test_input):
-    # Notice `training` is set to False.
-    # This is so all layers run in inference mode (batchnorm).
-    predictions = model(test_input, training=False)
-
-    fig = plt.figure(figsize=(4, 4))
-
-    for i in range(predictions.shape[0]):
-        plt.subplot(4, 4, i+1)
-        plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
-        plt.axis('off')
-
-    plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
-    plt.show()
-
-
-train(train_dataset, EPOCHS)
+train(dataset_, 1024)

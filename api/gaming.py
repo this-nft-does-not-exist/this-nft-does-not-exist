@@ -141,7 +141,7 @@ class GANMonitor(keras.callbacks.Callback):
             img.save("generated_img_%03d_%d.png" % (epoch, i))
 
 
-epochs = 100  # In practice, use ~100 epochs
+epochs = 1  # In practice, use ~100 epochs
 
 gan = GAN(discriminator=discriminator,
           generator=generator, latent_dim=latent_dim)
@@ -156,6 +156,7 @@ gan.fit(
         GANMonitor(num_img=10, latent_dim=latent_dim)]
 )
 
+gan.save("model")
 
 # for row in dataset:
 #     print(row)
