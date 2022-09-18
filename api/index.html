@@ -12,6 +12,7 @@
             html, body {
                 margin: 0;
                 padding: 0;
+                font-size: 20px;
             }
             body {
               font-family: "Harmattan", sans-serif;
@@ -21,8 +22,7 @@
               flex-direction: column;
               align-items: center;
               text-align: center;
-              padding: 20px;
-              padding-top: 40px;
+              padding: 4px;
               gap: 20px;
               /* min-height: 100%; */
               min-height: 90vh;
@@ -30,15 +30,21 @@
             }
             #nft {
                 width: 100%;
-                max-width: min(50vw, 50vh);
+                max-width: min(800px, 50vh);
                 height: auto;
                 image-rendering: pixelated;
-                border-radius: 2%;
+                border-radius: 8px;
+                box-shadow: 0 0 4px rgba(0.07, 0, 0.1, 0.3);
             }
-            h1 {
+            h1, h2 {
                 margin: 0;
                 padding: 0;
-                font-size: 50px;
+                font-size: 35px;
+            }
+            h2 {
+                margin: 0;
+                padding: 0;
+                font-size: 24px;
             }
             .fa {
                 font-size: 40px;
@@ -71,6 +77,14 @@
                 width: 95%;
                 border-style: solid;
             }
+            @media(min-width: 768px) {
+                body {
+                    padding-top: 40px;
+                }
+                h1 {
+                    font-size: 50px;
+                }
+            }
         </style>
     </head>
     <body>
@@ -79,17 +93,14 @@
         </h1>
         <img id="nft" src="/api/image">
         <a id="genButton" href="/">Generate me another!</a>
+        <div>To save this picture, right-click or hold down on the image and select "Save Image".</div>
         <hr></hr>
         <div>
-            <h2>
-                Check it out on github!
-            </h2>
             <a href="https://github.com/this-nft-does-not-exist/this-nft-does-not-exist" target="_blank">
+                <h2>Check it out on GitHub!</h2>
                 <i class="fa fa-github fa-2xl" aria-hidden="true"></i>
             </a>
         </div>
-        
-        
     </body>
 
 </html>
