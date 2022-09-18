@@ -6,6 +6,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow import keras
 
+
 def make_generator_model():
     model = tf.keras.Sequential()
     model.add(layers.Dense(8 * 8 * 256, use_bias=False, input_shape=(100,)))
@@ -96,7 +97,8 @@ def generate_image(model=generator, seed=None):
     if seed is None:
         seed = tf.random.normal([1, NOISE_DIM])
     predictions = model(seed, training=False)
-    im = Image.fromarray((predictions[0].numpy() * 255).astype(np.uint8))
+    im = Image.fromarray(
+        (predictions[0].numpy() * 127.5 + 127.5).astype(np.uint8))
     return im
 
 
@@ -161,17 +163,20 @@ def train(dataset, epochs):
 if __name__ == "__main__":
     BUFFER_SIZE = 60000
     BATCH_SIZE = 256
+    restore_checkpoint()
     train_dataset = keras.preprocessing.image_dataset_from_directory(
         "nft", label_mode=None, image_size=(64, 64), batch_size=32, shuffle=True
     )
     # Normalize the images to [-1, 1]
-    train_dataset = train_dataset.map(lambda x: x/255.0)
+    train_dataset = train_dataset.map(lambda x: (x-127.5)/127.5)
     train_images_array = []
     for images in train_dataset:
         for i in range(len(images)):
             train_images_array.append(images[i])
     train_images = np.array(train_images_array)
-    train_images = train_images.reshape(train_images.shape[0], 64, 64, 3).astype('float32')
+    train_images = train_images.reshape(
+        train_images.shape[0], 64, 64, 3).astype('float32')
     # Batch and shuffle the data
-    training_dataset = tf.data.Dataset.from_tensor_slices(train_images).shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
+    training_dataset = tf.data.Dataset.from_tensor_slices(
+        train_images).shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
     train(training_dataset, 1024)
