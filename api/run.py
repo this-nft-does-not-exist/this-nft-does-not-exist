@@ -1,32 +1,24 @@
-from random import shuffle
 import tensorflow as tf
-import glob
-import imageio
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 import os
-import PIL
 from tensorflow.keras import layers
 from tensorflow import keras
 import time
-import sqlite3
-
+from PIL import Image
 from IPython import display
 
 dbfile = "./nft.db"
-
-train_size = 100
-
 train_dataset = keras.preprocessing.image_dataset_from_directory(
     "nft", label_mode=None, image_size=(64, 64), batch_size=32, shuffle=True
 )
 
 # Normalize the images to [-1, 1]
-train_dataset = train_dataset.map(lambda x: (x - 127.5) / 127.5)
+train_dataset = train_dataset.map(lambda x: x/255.0)
 
 
 BUFFER_SIZE = 60000
-BATCH_SIZE = 32
+BATCH_SIZE = 256
 
 train_images_array = []
 for images in train_dataset:
@@ -76,7 +68,8 @@ generator = make_generator_model()
 noise = tf.random.normal([1, 100])
 generated_image = generator(noise, training=False)
 
-plt.imshow(generated_image[0, :, :, 0])
+# plt.imshow(generated_image[0, :, :, :])
+# plt.show()
 
 
 def make_discriminator_model():
@@ -141,17 +134,11 @@ def generate_and_save_images(model, epoch, test_input):
     # This is so all layers run in inference mode (batchnorm).
     predictions = model(test_input, training=False)
 
-    fig = plt.figure(figsize=(4, 4))
+    # fig = plt.figure(figsize=(4, 4))
+    im = Image.fromarray((predictions[0].numpy() * 255).astype(np.uint8))
 
-    for i in range(predictions.shape[0]):
-        plt.subplot(4, 4, i+1)
-        plt.imshow((predictions[i] + 1) / 2)
-        plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5)
-
-        plt.axis('off')
-
-    plt.savefig('image_at_epoch_{:04d}.png'.format(epoch))
-
+    im.save('image_at_epoch_{:04d}.png'.format(epoch))
+    im.close()
     # plt.show()
 
 # Notice the use of `tf.function`
@@ -185,14 +172,14 @@ def train_step(images):
 def train(dataset, epochs):
     for epoch in range(epochs):
         start = time.time()
-        for image_batch in dataset:
-            train_step(image_batch)
 
         # Produce images for the GIF as you go
         display.clear_output(wait=True)
         generate_and_save_images(generator,
                                  epoch + 1,
                                  seed)
+        for image_batch in dataset:
+            train_step(image_batch)
 
         # Save the model every 1 epochs
         if (epoch + 1) % 8 == 0:
