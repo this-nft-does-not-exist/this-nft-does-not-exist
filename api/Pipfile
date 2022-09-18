@@ -10,6 +10,7 @@ matplotlib = "*"
 ipython = "*"
 requests = "*"
 tqdm = "*"
+flask = "*"
 
 [dev-packages]
 
