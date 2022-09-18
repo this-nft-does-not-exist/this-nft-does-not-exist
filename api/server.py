@@ -1,12 +1,13 @@
 import io
+import sys
 import flask
 import run
 
-app = flask.Flask(__name__, static_url_path="", static_folder="../web/build/web")
+app = flask.Flask(__name__)
 run.restore_checkpoint()
 
 
-@app.get("/api/image")
+@app.get("/")
 def image():
     im = run.generate_image()
     img_io = io.BytesIO()
@@ -15,9 +16,4 @@ def image():
     return flask.send_file(img_io, mimetype='image/png')
 
 
-@app.get("/")
-def index():
-    return flask.redirect("/index.html")
-
-
-app.run(port=3000)
+app.run(port=int(sys.argv[1]) if len(sys.argv) > 0 else 1234)
