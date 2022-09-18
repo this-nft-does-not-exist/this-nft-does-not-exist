@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="preconnect" href="https://fonts.googleapis.com/%22%3E">
+        <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Harmattan:wght@400;700&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+        <title>This NFT Does Not Exist</title>
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+            }
+            body {
+              font-family: "Harmattan", sans-serif;
+              background-color: #ECE0CF;
+              color: #1C278B;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              text-align: center;
+              padding: 20px;
+              padding-top: 40px;
+              gap: 20px;
+              /* min-height: 100%; */
+              min-height: 90vh;
+              justify-content: space-between;
+            }
+            #nft {
+                width: 100%;
+                max-width: min(50vw, 50vh);
+                height: auto;
+                image-rendering: pixelated;
+                border-radius: 2%;
+            }
+            h1 {
+                margin: 0;
+                padding: 0;
+                font-size: 50px;
+            }
+            .fa {
+                font-size: 40px;
+            }
+            a {
+                font-size: 20px;
+                color: #1C278B;
+            }
+            #genButton {
+                background-color: #ECE0CF;
+                color: #1C278B;
+                padding: 10px 20px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                border-color: #1C278B;
+                border-width: 3px;
+                border-style: solid;
+                border-radius: 3px;
+            }
+            #genButton:hover, #genButton:active {
+                background-color: #B8BCE47A;
+                border-color: #1C278B;
+                border-width: 3px;
+                border-style: solid;
+                border-radius: 3px;
+            }
+            hr {
+                border-width: 1px;
+                width: 95%;
+                border-style: solid;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>
+            This NFT Does Not Exist
+        </h1>
+        <img id="nft" src="/api/image">
+        <a id="genButton" href="/">Generate me another!</a>
+        <hr></hr>
+        <div>
+            <h2>
+                Check it out on github!
+            </h2>
+            <a href="https://github.com/this-nft-does-not-exist/this-nft-does-not-exist" target="_blank">
+                <i class="fa fa-github fa-2xl" aria-hidden="true"></i>
+            </a>
+        </div>
+        
+        
+    </body>
+
+</html>
+
